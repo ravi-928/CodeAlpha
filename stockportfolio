@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Stock Portfolio Tracker</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #f4f4f4;
+      margin: 0;
+      padding: 20px;
+    }
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+      background-color: #fff;
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+    }
+    h1 {
+      text-align: center;
+      color: #333;
+    }
+    .form-group {
+      margin-bottom: 15px;
+    }
+    .form-group input {
+      width: 100%;
+      padding: 10px;
+      font-size: 16px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+    }
+    button {
+      padding: 10px 20px;
+      background-color: #28a745;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 16px;
+    }
+    button:hover {
+      background-color: #218838;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 20px;
+    }
+    table, th, td {
+      border: 1px solid #ddd;
+    }
+    th, td {
+      padding: 10px;
+      text-align: left;
+    }
+    .delete-btn {
+      background-color: #dc3545;
+      border: none;
+      padding: 5px 10px;
+      color: white;
+      cursor: pointer;
+    }
+    .delete-btn:hover {
+      background-color: #c82333;
+    }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <h1>Stock Portfolio Tracker</h1>
+
+  <!-- Add Stock Form -->
+  <div class="form-group">
+    <input type="text" id="ticker" placeholder="Stock Ticker (e.g. AAPL)" />
+  </div>
+  <div class="form-group">
+    <input type="number" id="quantity" placeholder="Quantity" />
+  </div>
+  <div class="form-group">
+    <input type="number" id="purchasePrice" placeholder="Purchase Price" />
+  </div>
+  <button id="addStockBtn">Add Stock</button>
+
+  <!-- Portfolio Table -->
+  <table>
+    <thead>
+      <tr>
+        <th>Ticker</th>
+        <th>Quantity</th>
+        <th>Purchase Price</th>
+        <th>Current Price</th>
+        <th>Gain/Loss</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody id="portfolioList"></tbody>
+  </table>
+</div>
+
+<script>
+  const API_KEY = 'YOUR_API_KEY';  // Replace with your Alpha Vantage API key
+
+  const portfolio = [];  // Store portfolio data
+
+  const getStockData = async (ticker) => {
+    const response = await fetch(`https://www.alphavantage.co/query?function=TIME_SERIES_INTRADAY&symbol=${ticker}&interval=5min&apikey=${API_KEY}`);
+    const data = await response.json();
+    const latestTime = Object.keys(data['Time Series (5min)'])[0];
+    const currentPrice = data['Time Series (5min)'][latestTime]['4. close'];
+    return parseFloat(currentPrice);
+  };
+
+  const calculatePerformance = (purchasePrice, currentPrice, quantity) => {
+    const totalInvested = purchasePrice * quantity;
+    const currentValue = currentPrice * quantity;
+    const gainLoss = currentValue - totalInvested;
+    const percentageChange = (gainLoss / totalInvested) * 100;
+    return { totalInvested, currentValue, gainLoss, percentageChange };
+  };
+
+  const updatePortfolioTable = () => {
+    const portfolioList = document.getElementById('portfolioList');
+    portfolioList.innerHTML = '';
+
+    portfolio.forEach(async (stock, index) => {
+      const currentPrice = await getStockData(stock.ticker);
+      const performance = calculatePerformance(stock.purchasePrice, currentPrice, stock.quantity);
+
+      const row = document.createElement('tr');
+      row.innerHTML = `
+        <td>${stock.ticker}</td>
+        <td>${stock.quantity}</td>
+        <td>$${stock.purchasePrice.toFixed(2)}</td>
+        <td>$${currentPrice.toFixed(2)}</td>
+        <td>
+          $${performance.gainLoss.toFixed(2)} (${performance.percentageChange.toFixed(2)}%)
+        </td>
+        <td>
+          <button class="delete-btn" onclick="removeStock(${index})">Remove</button>
+        </td>
+      `;
+      portfolioList.appendChild(row);
+    });
+  };
+
+  const addStock = () => {
+    const ticker = document.getElementById('ticker').value.trim().toUpperCase();
+    const quantity = parseInt(document.getElementById('quantity').value);
+    const purchasePrice = parseFloat(document.getElementById('purchasePrice').value);
+
+    if (!ticker || isNaN(quantity) || isNaN(purchasePrice)) {
+      alert('Please fill in all fields correctly.');
+      return;
+    }
+
+    portfolio.push({ ticker, quantity, purchasePrice });
+    updatePortfolioTable();
+
+    // Clear input fields
+    document.getElementById('ticker').value = '';
+    document.getElementById('quantity').value = '';
+    document.getElementById('purchasePrice').value = '';
+  };
+
+  const removeStock = (index) => {
+    portfolio.splice(index, 1);
+    updatePortfolioTable();
+  };
+
+  // Event listener for Add Stock button
+  document.getElementById('addStockBtn').addEventListener('click', addStock);
+
+  // Initialize the table
+  updatePortfolioTable();
+</script>
+
+</body>
+</html>
